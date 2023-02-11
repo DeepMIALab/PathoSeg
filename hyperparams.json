@@ -1,0 +1,1 @@
+{"learning_rate": 0.001, "optimizer": "Adam", "batch size": "64, 32", "Loss func": "Weighted cross entropy", "Dropouts": "D1(0.75)+D2(0.75)", "Callbacks": "Checkpoint,  Lr_Monitor, Early_Stopping", "scheduler": "Cosine AnnealingLR(it:30, min:1e-8)"}
