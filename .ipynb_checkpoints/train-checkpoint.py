@@ -76,7 +76,7 @@ class MyLearner(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        if self.classes ==1:
+        if self.classes ==2:
             logits = F.sigmoid(logits)
         else:
             logits = F.log_softmax(x, dim=1)
@@ -98,7 +98,7 @@ class MyLearner(pl.LightningModule):
         x, y = batch
         # print(x.shape)
         logits = self(x)
-        if self.classes ==1:
+        if self.classes ==2:
             logits = F.sigmoid(logits)
         else:
             logits = F.log_softmax(logits, dim=1)
@@ -203,8 +203,8 @@ if __name__ == '__main__':
 
 
     #Initializing the data loaders
-    train_batch_size = 4
-    val_batch_size = 2
+    train_batch_size = 2
+    val_batch_size = 1
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, pin_memory=True)
     valid_loader = torch.utils.data.DataLoader(val_dataset, batch_size=val_batch_size, pin_memory=True)
     # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=val_batch_size, pin_memory=True)
