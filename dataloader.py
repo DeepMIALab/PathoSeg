@@ -15,14 +15,14 @@ from skimage.transform import rotate
 import glob2
 
 class FATDataset(Dataset):
-    def __init__(self, img_path, transform = None, mode ='Training', plane = False):
+    def __init__(self, img_path, transform = None, mode ='Training', preprocessing=None):
         # df = pd.read_csv(os.path.join(data_path, 'ISBI2016_ISIC_Part3B_' + mode + '_GroundTruth.csv'), encoding='gbk')
         self.img_list = []                # List containing img paths 
         self.mask_list = []               # List containing mask paths 
         self.img_path = img_path
         self.mode = mode.strip()
-
         self.transform = transform
+        self.preprocessing = preprocessing
 
         if self.mode=="Training":
             for image_path in glob2.glob(self.img_path+"/*.png"):  #data/fat_detection/img_dir/train/*.png
@@ -53,18 +53,26 @@ class FATDataset(Dataset):
     def __getitem__(self, index):
         """Get the images"""
         name = self.img_list[index].split("/")[-1]      # Return the name of the image and mask i.e 10.png
-        print("Image name", name)
         img_path = self.img_list[index]
         mask_path = self.mask_list[index]
-
+        
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        mask = img = cv2.imread(mask_path,cv2.IMREAD_UNCHANGED)
+        mask = cv2.imread(mask_path,cv2.IMREAD_UNCHANGED)
+
+        # img = Image.open(img_path).convert('RGB')
+        # mask = Image.open(mask_path).convert('L')
+        # print(img.size)
 
         if self.transform:
             state = torch.get_rng_state()
             img = self.transform(img)
             torch.set_rng_state(state)
             mask = self.transform(mask)
+            
+        # apply preprocessing
+        if self.preprocessing:
+            sample = self.preprocessing(image=img)
+            img = sample['image']
 
-        return (img, mask)
+        return img, mask

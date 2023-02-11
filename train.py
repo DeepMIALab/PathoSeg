@@ -28,6 +28,7 @@ from torchmetrics.classification import MulticlassMatthewsCorrCoef
 
 # Custom packages
 from dataloader import FATDataset
+from utils import get_preprocessing
 
 
 # neptune_logger = NeptuneLogger(
@@ -80,8 +81,8 @@ class MyLearner(pl.LightningModule):
         else:
             logits = F.log_softmax(x, dim=1)
             
-        weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
-        loss = F.cross_entropy(logits,y, weight=weight)
+        # weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
+        loss = F.cross_entropy(logits,y.long()) #, weight=weight
         self.train_epoch_loss+=loss
         # self.log(f'Training_loss', loss, on_step=False,on_epoch=True, prog_bar=True)
         # loss = F.nll_loss(logits, y)
@@ -95,6 +96,7 @@ class MyLearner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx, split='val'):
         x, y = batch
+        # print(x.shape)
         logits = self(x)
         if self.classes ==1:
             logits = F.sigmoid(logits)
@@ -102,8 +104,8 @@ class MyLearner(pl.LightningModule):
             logits = F.log_softmax(logits, dim=1)
             
         # loss = F.nll_loss(logits, y)
-        weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
-        loss = F.cross_entropy(logits,y, weight=weight)
+        #weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
+        loss = F.cross_entropy(logits,y.long()) #, weight=weight
         self.val_epoch_loss+= loss
         preds = torch.argmax(logits, dim=1)
         # Compute confusion matrix stats
@@ -113,7 +115,8 @@ class MyLearner(pl.LightningModule):
         self.f2_score += smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
         self.accuracy += smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro")
         self.recall += smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
-        self.dice_score += Dice(average='micro').to("cuda:0")
+        dice = Dice(average='micro').to("cuda:0")
+        self.dice_score += dice(preds, y)#.to("cuda:0")
         metric = MulticlassMatthewsCorrCoef(num_classes=3).to("cuda:0")
         self.mcc += metric(preds, y)
 
@@ -122,7 +125,7 @@ class MyLearner(pl.LightningModule):
     def validation_epoch_end(self, outs): 
         self.log(f'Validation Loss', self.val_epoch_loss.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
         self.log(f'Validation IoU', self.iou_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation Dice', self.dice_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        self.log(f'Validation Dice', self.dice_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True) #.cpu().detach().numpy()
         self.log(f'Validation F1 score', self.f1_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
         self.log(f'Validation F2 score', self.f2_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
         self.log(f'Validation Accuracy', self.accuracy.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
@@ -188,15 +191,20 @@ def eval_acc(debug_name=None):
     return acc
 
 if __name__ == '__main__':
+    
+    ENCODER = 'se_resnext50_32x4d'
+    ENCODER_WEIGHTS = 'imagenet'
+    preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
+
     # Initializing the dataset objects for train, valid, and test cohorts
-    train_dataset = FATDataset(img_path = "fat_data/fat_detection/img_dir/train", mode = "Training")
-    val_dataset = FATDataset(img_path = "fat_data/fat_detection/img_dir/val", mode = "Validation")
+    train_dataset = FATDataset(img_path = "fat_data/fat_detection/img_dir/train", mode = "Training", preprocessing=get_preprocessing(preprocessing_fn))
+    val_dataset = FATDataset(img_path = "fat_data/fat_detection/img_dir/val", mode = "Validation", preprocessing=get_preprocessing(preprocessing_fn))
     # test_dataset = MyDataset(root = r"/home/farhan/audio_classification/audio_classification_dir/data/test", filenames=test_lst, labels = test_labels, transforms=False)
 
 
     #Initializing the data loaders
-    train_batch_size = 64
-    val_batch_size = 16
+    train_batch_size = 4
+    val_batch_size = 2
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True, pin_memory=True)
     valid_loader = torch.utils.data.DataLoader(val_dataset, batch_size=val_batch_size, pin_memory=True)
     # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=val_batch_size, pin_memory=True)

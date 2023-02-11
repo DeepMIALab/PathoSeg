@@ -1,0 +1,1 @@
+conda env export -f environment.yml   # Create a yml file
