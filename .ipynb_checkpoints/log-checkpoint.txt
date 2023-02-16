@@ -1,0 +1,10 @@
+Data Distribution For Training Phase
+Images 812
+Masks 812
+Data Distribution For Validation Phase
+Images 91
+Masks 91
+Number of train batches: 407
+Number of val batches: 92
+Adjusting learning rate of group 0 to 1.0000e-03.
+Sanity Checking: 0it [00:00, ?it/s]Sanity Checking:   0%|                                                                                                                                               | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|                                                                                                                                  | 0/2 [00:00<?, ?it/s]

@@ -14,6 +14,46 @@ import pandas as pd
 from skimage.transform import rotate
 import glob2
 
+
+def normalize_input_tensor(t, img_path):
+    """Normalize the input tensor for the network"""
+    # eps = 0.001
+    for channel in range(3):
+        print(t[0].shape)
+        mean, std, var = torch.mean(t[channel]), torch.std(t[channel]), torch.var(t[channel])
+        print("Mean, Std and Var before Normalize:\n", 
+          mean, std, var)
+        if std<=0.0:
+            print(img_path)
+        # Step 4: Normalizing the tensor
+        t[channel]  = (t[channel]-mean)/(std) #+eps
+        # Step 5: Again compute the mean, std and variance
+        # after Normalize
+        mean, std, var = torch.mean(t[channel]), torch.std(t[channel]), torch.var(t[channel])
+        print("Mean, std and Var after normalize:\n", 
+          mean, std, var)
+        # print("Tensor",t.shape)
+    return t
+
+def preprocess_input(x, mean=None, std=None, input_space="RGB", input_range=None, **kwargs):
+
+    if input_space == "BGR":
+        x = x[..., ::-1].copy()
+
+    if input_range is not None:
+        if x.max() > 1 and input_range[1] == 1:
+            x = x / 255.0
+
+    if mean is not None:
+        mean = np.array(mean)
+        x = x - mean
+
+    if std is not None:
+        std = np.array(std)
+        x = x / std
+
+    return x
+
 class FATDataset(Dataset):
     def __init__(self, img_path, transform = None, mode ='Training', preprocessing=None):
         # df = pd.read_csv(os.path.join(data_path, 'ISBI2016_ISIC_Part3B_' + mode + '_GroundTruth.csv'), encoding='gbk')
@@ -74,5 +114,14 @@ class FATDataset(Dataset):
         if self.preprocessing:
             sample = self.preprocessing(image=img)
             img = sample['image']
+         
+        # print("before norm mean", np.mean(img))
+        # print("before norm std", np.std(img))
+        # img = preprocess_input(img, mean=np.mean(img), std=np.std(img))
+        # print("After norm mean", np.mean(img))
+        # print("After norm std", np.std(img))
+        # print(np.mean(mask))
+        # normalize_input_tensor(img, name)
+        # normalize_input_tensor(mask, name)
 
         return img, mask

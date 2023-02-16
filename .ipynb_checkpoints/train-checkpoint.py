@@ -21,14 +21,15 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import NeptuneLogger
 from pytorch_lightning import loggers as pl_loggers
 import torchvision.transforms as transforms
-import segmentation_models_pytorch as smp
 # from torchmetrics.functional import dice_score
 from torchmetrics import Dice
 from torchmetrics.classification import MulticlassMatthewsCorrCoef
+import segmentation_models.segmentation_models_pytorch as smp
 
 # Custom packages
 from dataloader import FATDataset
 from utils import get_preprocessing
+from mediseg import UnetPlusPlus
 
 
 # neptune_logger = NeptuneLogger(
@@ -43,12 +44,17 @@ class MyLearner(pl.LightningModule):
 
         super().__init__()
         self.learning_rate = learning_rate
-        self.model = model = smp.UnetPlusPlus(
-        encoder_name="efficientnet-b7",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-        in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=num_classes,                      # model output channels (number of classes in your dataset)
-        )   # Set model
+        self.model = UnetPlusPlus(encoder_name="tu-hrnet_w30",
+            encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+            in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+            classes=num_classes,                      # model output channels (number of classes in your dataset)
+        )
+        # self.model = model = smp.UnetPlusPlus(
+        # encoder_name="tu-hrnet_w30",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7efficientnet-b7
+        # encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+        # in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        # classes=num_classes,                      # model output channels (number of classes in your dataset)
+        # )   # Set model
         
         self.classes = num_classes
         self.train_epoch_loss = 0
@@ -70,16 +76,19 @@ class MyLearner(pl.LightningModule):
 
     def forward(self, x):
         x = self.model(x)    # Apply activation in the step funcs
-        # x = F.log_softmax(x, dim=1)
         return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        if self.classes ==2:
-            logits = F.sigmoid(logits)
-        else:
-            logits = F.log_softmax(x, dim=1)
+        # print("Logits shape", logits.shape)
+        # print(logits[0][0])
+        # print(logits[0][1])
+        # print(y)
+        # if self.classes ==2:
+        #     logits = F.sigmoid(logits)
+        # else:
+        #     logits = F.log_softmax(x, dim=1)
             
         # weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
         loss = F.cross_entropy(logits,y.long()) #, weight=weight
@@ -96,20 +105,30 @@ class MyLearner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx, split='val'):
         x, y = batch
-        # print(x.shape)
+        print(x.shape)
+        print(y.shape)
         logits = self(x)
-        if self.classes ==2:
-            logits = F.sigmoid(logits)
-        else:
-            logits = F.log_softmax(logits, dim=1)
+        # if self.classes ==2:
+        #     logits = F.sigmoid(logits)
+        # else:
+        #     logits = F.log_softmax(logits, dim=1)
             
         # loss = F.nll_loss(logits, y)
         #weight = torch.tensor([1/0.07, 1/0.14, 1/0.004, 1/0.05, 1/0.05, 1/0.06, 1/0.29, 1/0.22, 1/0.09]).to("cuda:0")
         loss = F.cross_entropy(logits,y.long()) #, weight=weight
         self.val_epoch_loss+= loss
+        logits = F.softmax(logits, dim=1)
+        # print("Logits", logits.shape)
         preds = torch.argmax(logits, dim=1)
+        # print("Preds", preds)
+        # print("Preds shape", preds.shape)
+        # print("Target", y)
         # Compute confusion matrix stats
         tp, fp, fn, tn = smp.metrics.get_stats(preds.long(), y.long(), mode='multilabel', threshold=0.5)
+        # print("tp", tp)
+        # print("fp", fp)
+        # print("fn", fn)
+        # print("tn", tn)
         self.iou_score += smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
         self.f1_score += smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
         self.f2_score += smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
@@ -117,7 +136,7 @@ class MyLearner(pl.LightningModule):
         self.recall += smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
         dice = Dice(average='micro').to("cuda:0")
         self.dice_score += dice(preds, y)#.to("cuda:0")
-        metric = MulticlassMatthewsCorrCoef(num_classes=3).to("cuda:0")
+        metric = MulticlassMatthewsCorrCoef(num_classes=2).to("cuda:0")
         self.mcc += metric(preds, y)
 
         return loss
@@ -192,7 +211,7 @@ def eval_acc(debug_name=None):
 
 if __name__ == '__main__':
     
-    ENCODER = 'se_resnext50_32x4d'
+    ENCODER = "efficientnet-b7"
     ENCODER_WEIGHTS = 'imagenet'
     preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
@@ -223,7 +242,7 @@ if __name__ == '__main__':
     checkpoint = pl.callbacks.ModelCheckpoint(monitor='Validation Loss')
     early_stopping = EarlyStopping(monitor = 'Validation Loss', patience=20, verbose = True)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
-    trainer = pl.Trainer(gpus=1, max_epochs=700, callbacks=[checkpoint, lr_monitor, early_stopping], log_every_n_steps= 73, logger=tb_logger) #,  logger=neptune_logger,  resume_from_checkpoint="/home/farhan/audio_classification/audio_classification_dir/lightning_logs/lightning_logs/version_2/checkpoints/epoch=138-step=10147.ckpt"
+    trainer = pl.Trainer(gpus=1, max_epochs=700, callbacks=[checkpoint, lr_monitor, early_stopping], log_every_n_steps= 406, logger=tb_logger) #,  logger=neptune_logger,  resume_from_checkpoint="/home/farhan/audio_classification/audio_classification_dir/lightning_logs/lightning_logs/version_2/checkpoints/epoch=138-step=10147.ckpt"
     trainer.fit(learner);
 
     # # Check evaluation accuracy 

@@ -1,2 +1,4 @@
 fat_data/
 lightning_logs/
+pytorch-image-models/
+segmentation_models/
