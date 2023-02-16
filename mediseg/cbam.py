@@ -105,4 +105,4 @@ class CBAM(nn.Module):
         if self.spatial:
             x_out = self.spatial_attention(x_out)
 
-        return 
+        return x_out

@@ -49,6 +49,7 @@ class MyLearner(pl.LightningModule):
             in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             classes=num_classes,                      # model output channels (number of classes in your dataset)
         )
+        print('Model', self.model)
         # self.model = model = smp.UnetPlusPlus(
         # encoder_name="tu-hrnet_w30",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7efficientnet-b7
         # encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization

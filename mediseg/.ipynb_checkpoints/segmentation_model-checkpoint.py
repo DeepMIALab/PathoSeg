@@ -5,7 +5,6 @@ from .cbam import CBAM
 
 class SegmentationModel(torch.nn.Module):
     def initialize(self):
-        self.cbam = CBAM()
         init.initialize_decoder(self.decoder)
         init.initialize_head(self.segmentation_head)
         if self.classification_head is not None:
@@ -30,7 +29,6 @@ class SegmentationModel(torch.nn.Module):
         # print('X===========', x.shape)
 
         features = self.encoder(x)
-        features = self.CBAM(x)
         
         # print('Features============', len(features))
         # print('Feature 0 -------------', features[0].shape)
