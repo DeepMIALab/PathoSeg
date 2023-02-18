@@ -44,18 +44,18 @@ class MyLearner(pl.LightningModule):
 
         super().__init__()
         self.learning_rate = learning_rate
-        self.model = UnetPlusPlus(encoder_name="tu-hrnet_w30",
-            encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-            in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            classes=num_classes,                      # model output channels (number of classes in your dataset)
-        )
-        print('Model', self.model)
-        # self.model = model = smp.UnetPlusPlus(
-        # encoder_name="tu-hrnet_w30",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7efficientnet-b7
-        # encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-        # in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        # classes=num_classes,                      # model output channels (number of classes in your dataset)
-        # )   # Set model
+        # self.model = UnetPlusPlus(encoder_name="tu-hrnet_w30",
+        #     encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+        #     in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        #     classes=num_classes,                      # model output channels (number of classes in your dataset)
+        # )
+        # print('Model', self.model)
+        self.model = model = smp.UnetPlusPlus(
+        encoder_name="tu-hrnet_w30",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7efficientnet-b7
+        encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+        in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        classes=num_classes,                      # model output channels (number of classes in your dataset)
+        )   # Set model
         
         self.classes = num_classes
         self.train_epoch_loss = 0
@@ -125,7 +125,7 @@ class MyLearner(pl.LightningModule):
         # print("Preds shape", preds.shape)
         # print("Target", y)
         # Compute confusion matrix stats
-        tp, fp, fn, tn = smp.metrics.get_stats(preds.long(), y.long(), mode='multilabel', threshold=0.5)
+        tp, fp, fn, tn = smp.metrics.get_stats(preds.long(), y.long(), mode='multilabel', num_classes=2)
         # print("tp", tp)
         # print("fp", fp)
         # print("fn", fn)
@@ -144,7 +144,7 @@ class MyLearner(pl.LightningModule):
 
     def validation_epoch_end(self, outs): 
         self.log(f'Validation Loss', self.val_epoch_loss.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation IoU', self.iou_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        self.log(f'Validation IoU', self.iou_score/self.num_val_batches, prog_bar=True)#.cpu().detach().numpy()
         self.log(f'Validation Dice', self.dice_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True) #.cpu().detach().numpy()
         self.log(f'Validation F1 score', self.f1_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
         self.log(f'Validation F2 score', self.f2_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
