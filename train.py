@@ -66,9 +66,9 @@ class MyLearner(pl.LightningModule):
         # self.val_F1Score = 0
         self.iou_score = 0
         self.f1_score = 0
-        self.f2_score = 0
+        #self.f2_score = 0
         self.accuracy = 0
-        self.recall = 0
+        #self.recall = 0
         self.dice_score = 0
         self.mcc = 0
 
@@ -106,8 +106,8 @@ class MyLearner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx, split='val'):
         x, y = batch
-        print(x.shape)
-        print(y.shape)
+        # print(x.shape)
+        # print(y.shape)
         logits = self(x)
         # if self.classes ==2:
         #     logits = F.sigmoid(logits)
@@ -119,23 +119,21 @@ class MyLearner(pl.LightningModule):
         loss = F.cross_entropy(logits,y.long()) #, weight=weight
         self.val_epoch_loss+= loss
         logits = F.softmax(logits, dim=1)
+        # print('Logits shape', logits.shape)
         # print("Logits", logits.shape)
         preds = torch.argmax(logits, dim=1)
+        
         # print("Preds", preds)
         # print("Preds shape", preds.shape)
         # print("Target", y)
         # Compute confusion matrix stats
         tp, fp, fn, tn = smp.metrics.get_stats(preds.long(), y.long(), mode='multilabel', num_classes=2)
-        # print("tp", tp)
-        # print("fp", fp)
-        # print("fn", fn)
-        # print("tn", tn)
-        self.iou_score += smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
-        self.f1_score += smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
-        self.f2_score += smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="micro")
+        self.iou_score += smp.metrics.iou_score(tp, fp, fn, tn, reduction="macro")
+        self.f1_score += smp.metrics.f1_score(tp, fp, fn, tn, reduction="macro")
+        #self.f2_score += smp.metrics.fbeta_score(tp, fp, fn, tn, beta=2, reduction="macro")
         self.accuracy += smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro")
-        self.recall += smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
-        dice = Dice(average='micro').to("cuda:0")
+        #self.recall += smp.metrics.recall(tp, fp, fn, tn, reduction="micro-imagewise")
+        dice = Dice(num_classes=2, average='macro').to("cuda:0")
         self.dice_score += dice(preds, y)#.to("cuda:0")
         metric = MulticlassMatthewsCorrCoef(num_classes=2).to("cuda:0")
         self.mcc += metric(preds, y)
@@ -144,13 +142,13 @@ class MyLearner(pl.LightningModule):
 
     def validation_epoch_end(self, outs): 
         self.log(f'Validation Loss', self.val_epoch_loss.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation IoU', self.iou_score/self.num_val_batches, prog_bar=True)#.cpu().detach().numpy()
-        self.log(f'Validation Dice', self.dice_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True) #.cpu().detach().numpy()
-        self.log(f'Validation F1 score', self.f1_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation F2 score', self.f2_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation Accuracy', self.accuracy.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation MCC', self.mcc.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
-        self.log(f'Validation Recall', self.recall.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        self.log(f'Valid IoU', self.iou_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)#.cpu().detach().numpy()
+        self.log(f'Valid Dice', self.dice_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True) #.cpu().detach().numpy()
+        self.log(f'Valid F1 score', self.f1_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        #self.log(f'Valid F2 score', self.f2_score.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        self.log(f'Valid Accuracy', self.accuracy.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        self.log(f'Valid MCC', self.mcc.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
+        #self.log(f'Valid Recall', self.recall.cpu().detach().numpy()/self.num_val_batches, prog_bar=True)
         
         # Resetting the metrics for upcoming epoch
         self.iou_score = 0
