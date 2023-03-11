@@ -1,0 +1,5 @@
+Setting up Perceptual loss...
+Loading model from: /home/mehmetturan/virasoft_projects/gaugan/segmentation/fat_pytorch_lit/FastGAN-pytorch/lpips/weights/v0.1/vgg.pth
+...[net-lin [vgg]] initialized
+...Done
+Namespace(path='../fat_data/fat_detection/ann_dir/train/', cuda=0, name='test1', iter=100000, start_iter=0, batch_size=8, im_size=512, ckpt='None')
