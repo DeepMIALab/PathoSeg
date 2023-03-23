@@ -843,7 +843,7 @@ class HighResolutionNetFeatures(HighResolutionNet):
 def _create_hrnet(variant, pretrained, **model_kwargs):
     # print("Variant", variant)
     model_cls = HighResolutionNet
-    features_only = True
+    features_only = False
     kwargs_filter = None
     if model_kwargs.pop('features_only', False):
         model_cls = HighResolutionNetFeatures

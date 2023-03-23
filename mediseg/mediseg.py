@@ -69,19 +69,19 @@ class UnetPlusPlus(SegmentationModel):
         if encoder_name.startswith("mit_b"):
             raise ValueError("UnetPlusPlus is not support encoder_name={}".format(encoder_name))
 
-        self.encoder = get_encoder(
-            encoder_name,
-            in_channels=in_channels,
-            depth=encoder_depth,
-            weights=encoder_weights,
-        )
+        # self.encoder = get_encoder(
+        #     encoder_name,
+        #     in_channels=in_channels,
+        #     depth=encoder_depth,
+        #     weights=encoder_weights,
+        # )
         # self.encoder = hrnet_cbam(pretrained=False)
         kwargs = dict(
             in_chans=in_channels,
             features_only=True,
             out_indices=tuple(range(encoder_depth)),
         )
-        self.encoder = hrnet_cbam(pretrained = True, **kwargs)
+        self.encoder = hrnet_cbam(pretrained = False, **kwargs)
 
         self.decoder = UnetPlusPlusDecoder(
             encoder_channels=self.encoder.out_channels,

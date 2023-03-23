@@ -337,7 +337,7 @@ class BasicBlock(nn.Module):
 
     def __init__(
             self, inplanes, planes, stride=1, downsample=None, cardinality=1, base_width=64,
-            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.ReLU, norm_layer=nn.BatchNorm2d,
+            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.GELU, norm_layer=nn.InstanceNorm2d,
             attn_layer=None, aa_layer=None, drop_block=None, drop_path=None):
         super(BasicBlock, self).__init__()
 
@@ -353,7 +353,8 @@ class BasicBlock(nn.Module):
             dilation=first_dilation, bias=False)
         self.bn1 = norm_layer(first_planes)
         self.drop_block = drop_block() if drop_block is not None else nn.Identity()
-        self.act1 = act_layer(inplace=True)
+        # self.act1 = act_layer(inplace=True)
+        self.act1 = act_layer(approximate='none')
         self.aa = create_aa(aa_layer, channels=first_planes, stride=stride, enable=use_aa)
 
         self.conv2 = nn.Conv2d(
@@ -362,7 +363,8 @@ class BasicBlock(nn.Module):
 
         self.se = create_attn(attn_layer, outplanes)
 
-        self.act2 = act_layer(inplace=True)
+        # self.act2 = act_layer(inplace=True)
+        self.act2 = act_layer(approximate='none')
         self.downsample = downsample
         self.stride = stride
         self.dilation = dilation
@@ -404,7 +406,7 @@ class Bottleneck(nn.Module):
 
     def __init__(
             self, inplanes, planes, stride=1, downsample=None, cardinality=1, base_width=64,
-            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.ReLU, norm_layer=nn.BatchNorm2d,
+            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.GELU, norm_layer=nn.InstanceNorm2d,
             attn_layer=None, aa_layer=None, drop_block=None, drop_path=None):
         super(Bottleneck, self).__init__()
 
@@ -416,14 +418,16 @@ class Bottleneck(nn.Module):
 
         self.conv1 = nn.Conv2d(inplanes, first_planes, kernel_size=1, bias=False)
         self.bn1 = norm_layer(first_planes)
-        self.act1 = act_layer(inplace=True)
+        #self.act1 = act_layer(inplace=True)
+        self.act1 = act_layer(approximate='none')
 
         self.conv2 = nn.Conv2d(
             first_planes, width, kernel_size=3, stride=1 if use_aa else stride,
             padding=first_dilation, dilation=first_dilation, groups=cardinality, bias=False)
         self.bn2 = norm_layer(width)
         self.drop_block = drop_block() if drop_block is not None else nn.Identity()
-        self.act2 = act_layer(inplace=True)
+        # self.act2 = act_layer(inplace=True)
+        self.act2 = act_layer(approximate='none')
         self.aa = create_aa(aa_layer, channels=width, stride=stride, enable=use_aa)
 
         self.conv3 = nn.Conv2d(width, outplanes, kernel_size=1, bias=False)
@@ -431,7 +435,8 @@ class Bottleneck(nn.Module):
 
         self.se = create_attn(attn_layer, outplanes)
 
-        self.act3 = act_layer(inplace=True)
+        # self.act3 = act_layer(inplace=True)
+        self.act3 = act_layer(approximate='none')
         self.downsample = downsample
         self.stride = stride
         self.dilation = dilation
