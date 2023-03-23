@@ -187,6 +187,7 @@ dependencies:
     - jupyterlab-server==2.19.0
     - kiwisolver==1.4.4
     - lightning-utilities==0.6.0.post0
+    - lmdb==1.4.0
     - markdown==3.4.1
     - markupsafe==2.1.2
     - matplotlib==3.6.3

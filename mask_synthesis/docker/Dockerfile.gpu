@@ -1,0 +1,52 @@
+FROM docker.io/pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y unzip
+
+RUN pip install gdown
+RUN mkdir /code
+WORKDIR /code
+
+# Download pre-trained models and remove all but the latest
+# checkpoint for each model to save space
+
+RUN gdown -O trial_shell.zip "https://drive.google.com/uc?id=1plZ72wC1u8jX12PD3FaMzV5Z06XUuLj-" && \
+        unzip trial_shell.zip && \
+        rm trial_shell.zip && \
+        rm trial_shell/models/{all_10000.pth,all_20000.pth,10000.pth,20000.pth,30000.pth} && \
+        mv trial_shell/models/all_30000.pth trial_shell/models/30000.pth
+RUN gdown -O trial_skull.zip "https://drive.google.com/uc?id=1MVHSnf3Z42ZcRPk-29qXfjYgS1CKPuhm" && \
+        unzip trial_skull.zip && \
+        rm trial_skull.zip && \
+        rm trial_skull/models/{30000.pth,40000.pth}
+RUN gdown -O trial_dog.zip "https://drive.google.com/uc?id=1iHdCRXG_Y7Z_fTwFPMHAnHYGcmNpaHVn" && \
+        unzip trial_dog.zip && \
+        rm trial_dog.zip && \
+        rm trial_dog/models/{40000.pth,60000.pth}
+RUN gdown -O trial_panda.zip "https://drive.google.com/uc?id=1p1oRxpljgc2_M4NfaRrxmfNeC8RWAw8V" && \
+        unzip trial_panda.zip && \
+        rm trial_panda.zip && \
+        rm trial_panda/models/30000.pth
+RUN gdown -O good_ffhq_full_512.zip  "https://drive.google.com/uc?id=1oBxHC16Vpm-_9xWkuM43MHGQMMVijyJA" && \
+        unzip good_ffhq_full_512.zip && \
+        rm good_ffhq_full_512.zip && \
+        mv good_ffhq_full_512/models/all_100000.pth good_ffhq_full_512/models/100000.pth
+RUN gdown -O good_art_1k_512.zip "https://drive.google.com/uc?id=1RHTmh0dWM0Mg-S8_maKv5Up3m6wuwY08" && \
+        unzip good_art_1k_512.zip && \
+        rm good_art_1k_512.zip && \
+        mv good_art_1k_512/models/all_50000.pth good_art_1k_512/models/50000.pth
+
+RUN pip install \
+        tqdm==4.56.0 \
+        scipy==1.6.0 \
+        scikit-image==0.18.1 \
+        ipdb==0.13.4 \
+        pandas==1.2.1 \
+        lmdb==1.0.0 \
+        opencv-python==4.5.1.48 \
+        easing-functions==1.0.4
+
+COPY docker/infer.sh infer.sh
+RUN chmod +x infer.sh
+ENTRYPOINT ["./infer.sh"]
