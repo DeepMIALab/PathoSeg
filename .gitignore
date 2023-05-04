@@ -2,3 +2,10 @@ fat_data/
 lightning_logs/
 pytorch-image-models/
 segmentation_models/
+val_imgs/
+val_masks/
+val_pred/
+original_relabelling.ipynb
+.ipynb_checkpoints/
+_pycache_/
+cbam.py

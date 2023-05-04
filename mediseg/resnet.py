@@ -337,7 +337,7 @@ class BasicBlock(nn.Module):
 
     def __init__(
             self, inplanes, planes, stride=1, downsample=None, cardinality=1, base_width=64,
-            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.GELU, norm_layer=nn.InstanceNorm2d,
+            reduce_first=1, dilation=1, first_dilation=None, act_layer=nn.GELU, norm_layer=nn.BatchNorm2d,
             attn_layer=None, aa_layer=None, drop_block=None, drop_path=None):
         super(BasicBlock, self).__init__()
 
@@ -369,6 +369,8 @@ class BasicBlock(nn.Module):
         self.stride = stride
         self.dilation = dilation
         self.drop_path = drop_path
+        self.dropout1= torch.nn.Dropout(p=0.25)
+        self.dropout2 = torch.nn.Dropout(p=0.5)
         self.cbam = CBAM(outplanes)
 
     def zero_init_last(self):
@@ -382,10 +384,12 @@ class BasicBlock(nn.Module):
         x = self.drop_block(x)
         x = self.act1(x)
         x = self.aa(x)
+        x = self.dropout1(x)
 
         x = self.conv2(x)
         x = self.bn2(x)
-
+        # x = self.dropout1(x)
+        
         if self.se is not None:
             x = self.se(x)
 
@@ -397,6 +401,7 @@ class BasicBlock(nn.Module):
         x = self.cbam(x)
         x += shortcut
         x = self.act2(x)
+        # x = self.dropout2(x)
 
         return x
 
@@ -414,6 +419,8 @@ class Bottleneck(nn.Module):
         first_planes = width // reduce_first
         outplanes = planes * self.expansion
         first_dilation = first_dilation or dilation
+        self.dropout1 = torch.nn.Dropout(p=0.2)
+        self.dropout2 = torch.nn.Dropout(p=0.5)
         use_aa = aa_layer is not None and (stride == 2 or first_dilation != dilation)
 
         self.conv1 = nn.Conv2d(inplanes, first_planes, kernel_size=1, bias=False)
@@ -452,16 +459,18 @@ class Bottleneck(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.act1(x)
+        #x=self.dropout1(x)
 
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.drop_block(x)
         x = self.act2(x)
+        #x=self.dropout1(x)
         x = self.aa(x)
 
         x = self.conv3(x)
         x = self.bn3(x)
-
+        #x = self.dropout1(x)
         if self.se is not None:
             x = self.se(x)
 
@@ -473,6 +482,7 @@ class Bottleneck(nn.Module):
         x = self.cbam(x)
         x += shortcut
         x = self.act3(x)
+        #x=self.dropout2(x)
 
         return x
 

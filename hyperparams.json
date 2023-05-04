@@ -1,1 +1,0 @@
-{"learning_rate": 0.001, "optimizer": "Adam", "batch size": "=32, 16", "Loss func": "Weighted cross entropy", "Dropouts": "No", "Callbacks": "Checkpoint,  Lr_Monitor, Early_Stopping", "scheduler": "Yes", "encoder": "tu-hrnet_w30(mediseg)"}
