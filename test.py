@@ -50,7 +50,7 @@ def convert_to_rgb(mask, img_name, inference_path, dataset_name):
         rgb_mask[blue] = [0,0,255]
         rgb_mask[green] = [0,255,0]
         rgb_mask[yellow] = [255,255,0]
-        cv2.imwrite(cv2.imwrite(os.path.join(inference_path, img_name), rgb_mask[:,:,[2,1,0]]))
+        cv2.imwrite(cv2.imwrite(os.path.join(inference_path+'/'+dataset_name, img_name), rgb_mask[:,:,[2,1,0]]))
 
     else:
         mask = torch.squeeze(mask)
@@ -64,7 +64,7 @@ def convert_to_rgb(mask, img_name, inference_path, dataset_name):
             print(e)
 
         print(rgb_mask.shape)
-        print(cv2.imwrite(os.path.join(inference_path, img_name), rgb_mask[:,:,[2,1,0]]))
+        print(cv2.imwrite(os.path.join(inference_path+'/'+dataset_name, img_name), rgb_mask[:,:,[2,1,0]]))
 
 
 def eval_acc(debug_name=None, args=None):

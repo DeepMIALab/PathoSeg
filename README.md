@@ -81,12 +81,12 @@ python train.py --data_path_ ./dataset
 ```
 ```
 
-- Test the AI-FFPE  model:
+- Test the PathoSeg model:
 ```bash
-python test.py --dataroot ./datasets/Frozen/${dataroot_test_dir_name}  --name ${result_dir_name} --CUT_mode CUT --phase test --epoch ${epoch_number} --num_test ${number_of_test_images}
+python test.py --datapath ./test_path  --inference_path ./inference_masks --ckpt checkpoints/best_model.pt --dataset_type Fat 
 ```
 
-The test results will be saved to a html file here: ``` ./results/${result_dir_name}/latest_train/index.html ``` 
+The test results for a dataset e.g Prostate will be saved here: ```./inference_masks/Prostate/` 
 
 
 ## Reference
