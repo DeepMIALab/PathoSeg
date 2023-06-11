@@ -30,8 +30,8 @@ import segmentation_models_pytorch as smp
 import math
 
 # Custom packages
-from gaugan_pytorch.gaugan_fat.fat_data.dataloader import FATDataset
-from gaugan_pytorch.gaugan_fat.utils.utils import get_preprocessing
+from dataloader import GenericDataset
+from utils.utils import get_preprocessing
 from pathoseg import UnetPlusPlus
 
 def convert_to_rgb(mask, path):
@@ -63,6 +63,21 @@ class MyLearner(pl.LightningModule):
         
         self.weight_decay = weight_decay
         self.classes = num_classes
+        self.num_train_batches = torch.tensor(math.ceil(train_batches))
+        self.num_val_batches = torch.tensor(math.ceil(val_batches))
+        self.weight_decay = weight_decay
+        self.classes = num_classes
+        self.train_epoch_loss = torch.tensor(0)
+        self.val_epoch_loss = torch.tensor(0)
+        # self.val_F1Score = 0
+        self.iou_score = torch.tensor(0)
+        #print('IOu score intialization', self.iou_score)
+        self.f1score = torch.tensor(0)
+        #self.f2_score = 0
+        self.accuracy = torch.tensor(0)
+        #self.recall = 0
+        self.dice_score = torch.tensor(0)
+        self.mcc = torch.tensor(0)
 
         print('Number of train batches:', self.num_train_batches)
         print('Number of val batches:', self.num_val_batches)
@@ -97,7 +112,7 @@ class MyLearner(pl.LightningModule):
         self.log('Validation F1scrore', self.f1score, on_epoch=True, prog_bar=True, logger=True)
         self.accuracy = smp.metrics.accuracy(tp, fp, fn, tn, reduction="macro").to(self.device)
         self.log('Validation Accuracy', self.accuracy, on_epoch=True, prog_bar=True, logger=True)
-        dice = Dice(num_classes=2, average='macro').to(self.device)
+        dice = Dice(num_classes=self.classes, average='macro').to(self.device)
         self.dice_score = dice(preds, y)
         self.log('Validation Dice', self.dice_score, on_epoch=True, prog_bar=True, logger=True)
         metric = MulticlassMatthewsCorrCoef(num_classes=2).to(self.device)
@@ -118,11 +133,11 @@ class MyLearner(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": scheduler}#, "monitor": "Validation Loss"
         # return optimizer
 
-    # def train_dataloader(self):
-    #     return train_loader
+    def train_dataloader(self):
+        return train_loader
 
-    # def val_dataloader(self):
-    #     return valid_loader
+    def val_dataloader(self):
+        return valid_loader
 
     # def test_dataloader(self):
     #     return test_loader

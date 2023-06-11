@@ -35,7 +35,7 @@ import math
 # from dataloader import FATDataset
 from utils import get_preprocessing
 from .pathoseg import UnetPlusPlus
-from .learner import MyLearner
+from .Pytorch_learner import MyLearner
 
 def convert_to_rgb(mask, img_name, inference_path, dataset_name):
     """Function to convert typemaps to rgb masks"""

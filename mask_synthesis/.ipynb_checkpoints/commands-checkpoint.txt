@@ -1,3 +1,0 @@
-python train.py --path '../fat_data/fat_detection/ann_dir/train/' --im_size 512 --iter 100000
-# For eval
-python eval.py --ckpt fat_pytorch_lit/FastGAN-pytorch/train_results/test1/models/all_95000.pth --im_size 512 --n_sample 100 

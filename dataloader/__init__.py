@@ -1,1 +1,1 @@
-from GenericDataloader import GenericDataset
+from .GenericDataloader import GenericDataset

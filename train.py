@@ -34,7 +34,7 @@ import math
 from dataloader import GenericDataset
 from utils.utils import get_preprocessing
 from pathoseg import UnetPlusPlus
-from learner import MyLearner
+from Pytorch_learner import MyLearner
 
 def convert_to_rgb(mask, path):
     """Function to convert typemaps to rgb masks"""
@@ -51,12 +51,12 @@ if __name__ == '__main__':
     parser.add_argument('--encoder', type=str, default='tu-hrnet_w30', help='encoder to use for the segmentation model')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='weight to intialize the encoder')
     parser.add_argument('--data_path', type=str, required=True, help='path to the base dataset folder')
-    parser.add_argument('--train_batchsize', type=int, default=64, help='training batch size')
-    parser.add_argument('--validation_batchsize', type=int, default=32, help='validation batch size')
+    parser.add_argument('--train_batchsize', type=int, default=32, help='training batch size')
+    parser.add_argument('--validation_batchsize', type=int, default=16, help='validation batch size')
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='the iteration to start training')
     parser.add_argument('--num_classes', type=int, default=2, help='number of classes in the dataset')
     parser.add_argument('--max_epochs', type=int, default=700, help='total epochs for training')
-    parser.add_argument('--gpus', type=int, default=8, help='number of gpus')
+    parser.add_argument('--gpus', type=int, default=3, help='number of gpus')
 
     args = parser.parse_args()
     print(args)
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     # Initializing the dataset objects for train, valid, and test cohorts
     train_dataset = GenericDataset(img_path = args.data_path+"/train", mode = "Training", transform=train_transform)#, preprocessing=get_preprocessing(preprocessing_fn))
-    val_dataset = GenericDataset(img_path = args.data_path+"/validation", mode = "Validation")#,preprocessing=get_preprocessing(preprocessing_fn))
+    val_dataset = GenericDataset(img_path = args.data_path+"/val", mode = "Validation")#,preprocessing=get_preprocessing(preprocessing_fn))
     # test_dataset = MyDataset(root = r"/home/farhan/audio_classification/audio_classification_dir/data/test", filenames=test_lst, labels = test_labels, transforms=False)
 
 
@@ -104,4 +104,4 @@ if __name__ == '__main__':
     early_stopping = EarlyStopping(monitor = 'Validation Loss', patience=30, verbose = True)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(accelerator='gpu', devices = args.gpus, strategy = 'dp', max_epochs=args.max_epochs, callbacks=[checkpoint, lr_monitor, early_stopping], log_every_n_steps= (len(train_dataset)/train_batch_size+len(val_dataset)/val_batch_size), logger=tb_logger) #,  logger=neptune_logger,  resume_from_checkpoint="/home/farhan/audio_classification/audio_classification_dir/lightning_logs/lightning_logs/version_2/checkpoints/epoch=138-step=10147.ckpt"
-    trainer.fit(learner)
+    trainer.fit(learner, train_loader, valid_loader)
