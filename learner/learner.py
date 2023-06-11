@@ -32,7 +32,7 @@ import math
 # Custom packages
 from gaugan_pytorch.gaugan_fat.fat_data.dataloader import FATDataset
 from gaugan_pytorch.gaugan_fat.utils.utils import get_preprocessing
-from mediseg import UnetPlusPlus
+from model import UnetPlusPlus
 
 def convert_to_rgb(mask, path):
     """Function to convert typemaps to rgb masks"""
@@ -44,12 +44,12 @@ def convert_to_rgb(mask, path):
 
 class MyLearner(pl.LightningModule):
 
-    def __init__(self, learning_rate=1e-4, train_batches = None, val_batches = None, in_channels=3, num_classes=2, weight_decay = 1e-2):
+    def __init__(self, encoder_name, encoder_weights, learning_rate=1e-4, train_batches = None, val_batches = None, in_channels=3, num_classes=2, weight_decay = 1e-2):
 
         super().__init__()
         self.learning_rate = learning_rate
-        self.model = UnetPlusPlus(encoder_name="tu-hrnet_w30",
-            encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+        self.model = UnetPlusPlus(encoder_name=encoder_name,
+            encoder_weights=encoder_weights,     # use `imagenet` pre-trained weights for encoder initialization
             in_channels=in_channels,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             classes=num_classes,                      # model output channels (number of classes in your dataset)
         )
@@ -63,20 +63,6 @@ class MyLearner(pl.LightningModule):
         
         self.weight_decay = weight_decay
         self.classes = num_classes
-        self.train_epoch_loss = torch.tensor(0)
-        self.val_epoch_loss = torch.tensor(0)
-        self.num_train_batches = torch.tensor(math.ceil(train_batches))
-        self.num_val_batches = torch.tensor(math.ceil(val_batches))
-        # self.val_accuracy = 0
-        # self.val_F1Score = 0
-        self.iou_score = torch.tensor(0)
-        #print('IOu score intialization', self.iou_score)
-        self.f1score = torch.tensor(0)
-        #self.f2_score = 0
-        self.accuracy = torch.tensor(0)
-        #self.recall = 0
-        self.dice_score = torch.tensor(0)
-        self.mcc = torch.tensor(0)
 
         print('Number of train batches:', self.num_train_batches)
         print('Number of val batches:', self.num_val_batches)
@@ -93,15 +79,6 @@ class MyLearner(pl.LightningModule):
         self.train_epoch_loss = self.train_epoch_loss.to(self.device) + loss.to(self.device)
         return loss
 
-    # def training_epoch_end(self, outs):
-    #     print('train epoch loss', self.train_epoch_loss) 
-    #     print(type(self.train_epoch_loss))
-    #     print(type(self.num_train_batches))
-    #     self.log(f'Training_loss', self.train_epoch_loss.to(self.device)/self.num_train_batches.to(self.device))#.cpu().detach().numpy()
-    #     print(f'Training_loss', self.train_epoch_loss.to(self.device)/self.num_train_batches.to(self.device))
-    #     #Resetting the metrics for upcoming epoch
-    #     self.train_epoch_loss = torch.tensor(0)
-
     def validation_step(self, batch, batch_idx, split='val'):
         x, y = batch
         logits = self(x)
@@ -110,21 +87,6 @@ class MyLearner(pl.LightningModule):
         #self.val_epoch_loss = self.val_epoch_loss.to(self.device) + loss.to(self.device)
         logits = F.softmax(logits, dim=1)
         preds = torch.argmax(logits, dim=1)
-        preds_to_save = preds.cpu().detach().numpy()
-        # print('preds shape', preds.shape)
-
-        # for ind in range(x.shape[0]):
-        #     print(x[ind].permute(1,2,0).cpu().detach().numpy().shape)
-        #     convert_to_rgb(x[ind].permute(1,2,0).cpu().detach().numpy(), str(ind)+'.png')
-        #     #cv2.imwrite(os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_fat/val_imgs',str(ind)+'.png'), x[ind].permute(1,2,0).cpu().detach().numpy())
-
-        for ind in range(y.shape[0]):
-            convert_to_rgb(y[ind].cpu().detach().numpy(), os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_fat/val_masks',str(ind)+'.png'))
-            #cv2.imwrite(os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_fat/val_masks',str(ind)+'.png'), y[ind].cpu().detach().numpy())
-
-        for ind in range(preds.shape[0]):
-            convert_to_rgb(preds_to_save[ind], os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_fat/val_pred',str(ind)+'.png'))
-            # cv2.imwrite(os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_fat/val_pred',str(ind)+'.png'), preds_to_save[ind])
 
         # Compute confusion matrix stats
         tp, fp, fn, tn = smp.metrics.get_stats(preds.long(), y.long(), mode='binary', num_classes=2)
@@ -156,11 +118,11 @@ class MyLearner(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": scheduler}#, "monitor": "Validation Loss"
         # return optimizer
 
-    def train_dataloader(self):
-        return train_loader
+    # def train_dataloader(self):
+    #     return train_loader
 
-    def val_dataloader(self):
-        return valid_loader
+    # def val_dataloader(self):
+    #     return valid_loader
 
     # def test_dataloader(self):
     #     return test_loader

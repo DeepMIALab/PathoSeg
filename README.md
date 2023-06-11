@@ -1,22 +1,22 @@
 # A Robust Image Synthesis and Segmentation Pipeline For Histopathology
 
-<img src="imgs/overview.jpeg" width="800px"/>
+<img src="imgs/Figure 1.jpg" width="800px"/>
 
-### [Paper](https://www.nature.com/articles/s41551-022-00952-9) | [Brain GBM Dataset](https://portal.gdc.cancer.gov/projects/TCGA-GBM) | [Brain LGG Dataset](https://portal.gdc.cancer.gov/projects/TCGA-LGG) | [Lung LUAD Dataset](https://portal.gdc.cancer.gov/projects/TCGA-LUAD) |  [Lung LUSC Dataset](https://portal.gdc.cancer.gov/projects/TCGA-LUSC) | [Pretrained Models](https://www.dropbox.com/sh/x7fvxx1fiohxwb4/AAAObJJTJpIHHi-s2UafrKeea?dl=0) | [WebSite](https://deepmia.boun.edu.tr/) 
+### [Paper](https://www.nature.com/articles/s41551-022-00952-9) | [Micro/Macrovesicular Steatosis of liver (MSL)](https://portal.gdc.cancer.gov/projects/TCGA-GBM) | [Breast Carcinoma Tubules (BCT)](https://portal.gdc.cancer.gov/projects/TCGA-LGG) | [Prostate Carcinoma Glands (PCG)](https://portal.gdc.cancer.gov/projects/TCGA-LUAD) 
 
-In this work, we propose AI-FFPE pipeline which is optimized for histopathology images by driving the network attention specifically to the nuclei and tissue preperation protocols related deficiencies. Compared to [CycleGAN](https://github.com/junyanz/CycleGAN), our model training is faster and less memory-intensive.
+In this paper, we propose a novel GAN-based image synthesis framework, PathopixGAN, specifically designed to offer more precise semantic control over the content and structure of the synthesized images. Besides, we proposed semantic segmentation methodology, PathoSeg, and show the superior performance of the method both quantitatively and qualitatively compared to the other high-performing SOTA models when trained on both real and real+PathopixGAN-generated synthetic data.
 
 <br>
-<img src='imgs/frozgan_loss2.gif' align="right" width=960>
+<img src='imgs/Figure 2.jpg' align="right" width=960>
 <br>
 
 ## Example Results
 
-### Frozen to FFPE Translation in Brain Specimens
-<img src="imgs/brain_gif.gif" width="800px"/>
+### PathopixGAN synthetic data generation
+<img src="imgs/Figure 3.jpg" width="800px"/>
 
-### Frozen to FFPE Translation in Lung Specimens
-<img src="imgs/lung_gif.gif" width="800px"/>
+### Qualitative comparison of Original and PathopixGAN synthetic data
+<img src="imgs/Figure 4.jpg" width="800px"/>
 
 
 ## Prerequisites
@@ -29,11 +29,11 @@ In this work, we propose AI-FFPE pipeline which is optimized for histopathology 
 
 - Clone this repo:
 ```bash
-git clone https://github.com/DeepMIALab/AI-FFPE
-cd AI-FFPE
+git clone https://github.com/DeepMIALab/PathSeg-PathopixGAN.git
+cd PathSeg-PathopixGAN
 ```
 
-- Install PyTorch 1.1 and other dependencies (e.g., torchvision, visdom, dominate, gputil).
+- Install PyTorch and other dependencies with the environment.yml or requirements.txt.
 
 - For pip users, please type the command `pip install -r requirements.txt`.
 
@@ -41,36 +41,44 @@ cd AI-FFPE
 
 ### Training and Test
 
-- The slide identity numbers which were used in train, validation and test sets are given as .txt files in [docs/](https://github.com/DeepMIALab/AI-FFPE/tree/main/docs) for both Brain and Lung dataset. To replicate the results, you may download [GBM](https://portal.gdc.cancer.gov/projects/TCGA-GBM) and [LGG](https://portal.gdc.cancer.gov/projects/TCGA-LGG) projects for Brain, [LUAD](https://portal.gdc.cancer.gov/projects/TCGA-LUAD) and [LUSC](https://portal.gdc.cancer.gov/projects/TCGA-LUSC) projects for Lung from TCGA Data Portal and create a subset using these .txt files.
-- To extract the patches from WSIs and create PNG files, please follow the instructions given in [AI-FFPE/Data_preprocess](https://github.com/DeepMIALab/AI-FFPE/tree/main/Data_preprocess) section. 
+- The training and test cohorts have been already provided with the dataset. You may download the dataset and operate the dataloader function provided in [PathSeg-PathopixGAN/dataloader](https://github.com/DeepMIALab/PathSeg-PathopixGAN/dataloader)  to replicate the results published in the paper. 
 
 The data used for training are expected to be organized as follows:
 ```bash
 Data_Path                # DIR_TO_TRAIN_DATASET
- ├──  trainA
- |      ├── 1.png     
- |      ├── ...
- |      └── n.png
- ├──  trainB     
- |      ├── 1.png     
- |      ├── ...
- |      └── m.png
- ├──  valA
- |      ├── 1.png     
- |      ├── ...
- |      └── j.png
- └──  valB     
-        ├── 1.png     
-        ├── ...
-        └── k.png
+ ├──  img_dir
+ |      ├── train
+ |      |     ├── 1.png     
+ |      |     ├── ...     
+ |      |     └── m.png          
+ |      ├── test
+ |      |     ├── 1.png     
+ |      |     ├── ...     
+ |      |     └── m.png  
+ |      └── validation
+ |           ├── 1.png     
+ |           ├── ...     
+ |           └── m.png  
+ ├──  ann_dir
+ |      ├── train
+ |      |     ├── 1.png     
+ |      |     ├── ...     
+ |      |     └── m.png          
+ |      ├── test
+ |      |     ├── 1.png     
+ |      |     ├── ...     
+ |      |     └── m.png  
+ |      └── validation
+ |           ├── 1.png     
+ |           ├── ...     
+ |           └── m.png  
 
 ```
 
-- To view training results and loss plots, run `python -m visdom.server` and click the URL http://localhost:8097.
-
-- Train the AI-FFPE model:
+- Train the segmentation model:
 ```bash
-python train.py --dataroot ./datasets/Frozen/${dataroot_train_dir_name} --name ${model_results_dir_name} --CUT_mode CUT --batch_size 1
+python train.py --data_path_ ./dataset 
+```
 ```
 
 - Test the AI-FFPE  model:
@@ -81,33 +89,13 @@ python test.py --dataroot ./datasets/Frozen/${dataroot_test_dir_name}  --name ${
 The test results will be saved to a html file here: ``` ./results/${result_dir_name}/latest_train/index.html ``` 
 
 
-
-### AI-FFPE, AI-FFPE without Spatial Attention Block, AI-FFPE without self-regularization loss, CUT, FastCUT, and CycleGAN
-
-<img src="imgs/ablation.png" width="800px"/>
-
-### Apply a pre-trained AI-FFPE model and evaluate
-
-For reproducability, you can download the pretrained models for each algorithm [here.](https://www.dropbox.com/sh/x7fvxx1fiohxwb4/AAAObJJTJpIHHi-s2UafrKeea?dl=0)
-
 ## Reference
 
 If you find our work useful in your research or if you use parts of this code please consider citing our paper:
 
 ```
-@article{article,
-author = {Ozyoruk, Kutsev and Can, Sermet and Darbaz, Berkan and Başak, Kayhan and Demir, Derya and Gokceler, Irem and Serin, Gurdeniz and Hacısalihoglu, Payam and Kurtuluş, Emirhan and Lu, Ming and Chen, Tiffany and Williamson, Drew and Yılmaz, Funda and Mahmood, Faisal and Turan, Mehmet},
-year = {2022},
-month = {12},
-pages = {},
-title = {A deep-learning model for transforming the style of tissue images from cryosectioned to formalin-fixed and paraffin-embedded},
-volume = {6},
-journal = {Nature Biomedical Engineering},
-doi = {10.1038/s41551-022-00952-9}
-}
-```
 
 
 
 ### Acknowledgments
-Our code is developed based on [CUT](https://github.com/taesungp/contrastive-unpaired-translation). We also thank [pytorch-fid](https://github.com/mseitzer/pytorch-fid) for FID computation, and [stylegan2-pytorch](https://github.com/rosinality/stylegan2-pytorch/) for the PyTorch implementation of StyleGAN2 used in our single-image translation setting.
+Our PathopixGAN code is developed based on [SPADE](https://github.com/NVlabs/SPADE). We also thank [FastGan-pytorch](https://github.com/odegeasslbc/FastGAN-pytorch) for their pipeline for synthesizing semantic masks for PathopixGAN. 

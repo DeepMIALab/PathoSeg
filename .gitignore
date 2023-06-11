@@ -2,7 +2,7 @@ fat_data/
 lightning_logs/
 original_relabelling.ipynb
 .ipynb_checkpoints/
-_pycache_/
+__pycache__/
 original_relabelling.ipynb
 truba_job.sh
 
