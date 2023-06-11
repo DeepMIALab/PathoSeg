@@ -33,8 +33,8 @@ import math
 
 # Custom packages
 # from dataloader import FATDataset
-# from utils import get_preprocessing
-from .model import UnetPlusPlus
+from utils import get_preprocessing
+from .pathoseg import UnetPlusPlus
 from .learner import MyLearner
 
 def convert_to_rgb(mask, img_name, inference_path, dataset_name):

@@ -32,7 +32,7 @@ import math
 # Custom packages
 from gaugan_pytorch.gaugan_fat.fat_data.dataloader import FATDataset
 from gaugan_pytorch.gaugan_fat.utils.utils import get_preprocessing
-from model import UnetPlusPlus
+from pathoseg import UnetPlusPlus
 
 def convert_to_rgb(mask, path):
     """Function to convert typemaps to rgb masks"""

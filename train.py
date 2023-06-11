@@ -33,7 +33,7 @@ import math
 # Custom packages
 from dataloader import GenericDataset
 from utils.utils import get_preprocessing
-from model import UnetPlusPlus
+from pathoseg import UnetPlusPlus
 from learner import MyLearner
 
 def convert_to_rgb(mask, path):
