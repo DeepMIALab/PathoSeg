@@ -37,46 +37,60 @@ import math
 from .model import UnetPlusPlus
 from .learner import MyLearner
 
-def convert_to_rgb(mask, img_name):
+def convert_to_rgb(mask, img_name, inference_path, dataset_name):
     """Function to convert typemaps to rgb masks"""
-    print('RGB FUNC')
-    mask = torch.squeeze(mask)
-    print(mask.shape)
-    rgb_mask = np.zeros((mask.shape[0], mask.shape[1], 3))
-    white = mask == 1
-    print(white)
-    try:
-        rgb_mask[white] = [255,255,255]
-    except Exception as e:
-        print(e)
+    if dataset_name == 'Prostate':
+        rgb_mask = np.zeros((mask.shape[0], mask.shape[1], 3))
+        red = mask == 1
+        blue = mask == 2
+        green = mask == 3
+        yellow = mask == 4
 
-    print(rgb_mask.shape)
-    print(cv2.imwrite(os.path.join('/truba/home/isahin/gaugan_pytorch/gaugan_tubule_test/real_preds', img_name), rgb_mask[:,:,[2,1,0]]))
+        rgb_mask[red] = [255,0,0]
+        rgb_mask[blue] = [0,0,255]
+        rgb_mask[green] = [0,255,0]
+        rgb_mask[yellow] = [255,255,0]
+        cv2.imwrite(cv2.imwrite(os.path.join(inference_path, img_name), rgb_mask[:,:,[2,1,0]]))
+
+    else:
+        mask = torch.squeeze(mask)
+        print(mask.shape)
+        rgb_mask = np.zeros((mask.shape[0], mask.shape[1], 3))
+        white = mask == 1
+        print(white)
+        try:
+            rgb_mask[white] = [255,255,255]
+        except Exception as e:
+            print(e)
+
+        print(rgb_mask.shape)
+        print(cv2.imwrite(os.path.join(inference_path, img_name), rgb_mask[:,:,[2,1,0]]))
 
 
-def eval_acc(debug_name=None, encoder_name, encoder_weights, num_classes=2, in_channels = 3):
-    ENCODER = "tu-hrnet_w30"
-    ENCODER_WEIGHTS = 'imagenet'
+def eval_acc(debug_name=None, args=None):
+    ENCODER = args.encoder
+    ENCODER_WEIGHTS = args.encoder_weights
     preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    model = MyLearner(num_classes=num_classes, in_channels=in_channels).load_from_checkpoint("/truba/home/isahin/gaugan_pytorch/gaugan_tubule/lightning_logs/lightning_logs/version_7/checkpoints/epoch=110-step=43401.ckpt")
+    model = MyLearner(num_classes=args.num_classes, in_channels= args.in_channels).load_from_checkpoint(args.ckpt)
     model = model.eval().to('cuda')
+    test_imgs = os.listdir(args.data_path)
 
-    with torch.no_grad():
-            img = cv2.imread("/truba/home/isahin/gaugan_pytorch/gaugan_tubule/tubule_data/tubule/train/images/155.png")
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            #mask = cv2.imread("/truba/home/isahin/gaugan_pytorch/gaugan_tubule/tubule_data/tubule/train/masks/105.png",cv2.IMREAD_UNCHANGED)
+    for img in test_imgs:
+        with torch.no_grad():
+                img = cv2.imread(os.path.join(args.data_path, img), cv2.IMREAD_UNCHANGED)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-            img = torchvision.transforms.functional.to_tensor(img)
-            img = img[None,:]
-            print(img.shape)
-            logits = model(img.to(device))
-            preds = torch.argmax(logits, dim=1).cpu()
-            print(preds.shape)
-            convert_to_rgb(preds, '155.png')
+                img = torchvision.transforms.functional.to_tensor(img)
+                img = img[None,:]
+                print(img.shape)
+                logits = model(img.to(device))
+                preds = torch.argmax(logits, dim=1).cpu()
+                print(preds.shape)
+                convert_to_rgb(preds, img, args.inference_path, args.dataset_type)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='PathoSeg ')
+    parser = argparse.ArgumentParser(description='PathoSeg')
 
     parser.add_argument('--encoder', type=str, default='tu-hrnet_w30', help='encoder to use for the segmentation model')
     parser.add_argument('--encoder_weights', type=str, default='imagenet', help='weight to intialize the encoder')
@@ -86,6 +100,14 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='the iteration to start training')
     parser.add_argument('--num_classes', type=int, default=2, help='number of classes in the dataset')
     parser.add_argument('--max_epochs', type=int, default=700, help='total epochs for training')
+    parser.add_argument('--ckpt', type=str, required=True, help='Path to the model checkpoint to perform inference on the test data')
     parser.add_argument('--gpus', type=int, default=8, help='number of gpus')
+    parser.add_argument('--in_channels', type=int, default=1, help='Channels of the input image to the model')
+    parser.add_argument('--inference_path', type=str, required=True, help='Directory to store the model inference')
+    parser.add_argument('--dataset_type', type=str, choices=['Prostate', 'Fat', 'Tubule'], required=True, help='Dataset type')
+
+    args = parser.parse_args()
+    print(args)
+
     # Check evaluation accuracy 
-    eval_acc(debug_name=True, in_channels=2)
+    eval_acc(debug_name=True, args=args)
