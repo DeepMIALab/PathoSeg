@@ -5,4 +5,6 @@ original_relabelling.ipynb
 __pycache__/
 original_relabelling.ipynb
 truba_job.sh
+/inference
+gaugan_fat.log
 

@@ -44,7 +44,7 @@ def convert_to_rgb(mask, path):
 
 class MyLearner(pl.LightningModule):
 
-    def __init__(self, encoder_name, encoder_weights, learning_rate=1e-4, train_batches = None, val_batches = None, in_channels=3, num_classes=2, weight_decay = 1e-2):
+    def __init__(self, encoder_name='tu-hrnet_w30', encoder_weights='imagenet', learning_rate=1e-4, train_batches = None, val_batches = None, in_channels=3, num_classes=2, weight_decay = 1e-2):
 
         super().__init__()
         self.learning_rate = learning_rate
@@ -63,8 +63,12 @@ class MyLearner(pl.LightningModule):
         
         self.weight_decay = weight_decay
         self.classes = num_classes
-        self.num_train_batches = torch.tensor(math.ceil(train_batches))
-        self.num_val_batches = torch.tensor(math.ceil(val_batches))
+        try:
+            self.num_train_batches = torch.tensor(math.ceil(train_batches))
+            self.num_val_batches = torch.tensor(math.ceil(val_batches))
+        except Exception as e:
+            print(e)
+
         self.weight_decay = weight_decay
         self.classes = num_classes
         self.train_epoch_loss = torch.tensor(0)
@@ -78,9 +82,13 @@ class MyLearner(pl.LightningModule):
         #self.recall = 0
         self.dice_score = torch.tensor(0)
         self.mcc = torch.tensor(0)
-
-        print('Number of train batches:', self.num_train_batches)
-        print('Number of val batches:', self.num_val_batches)
+        
+        try:
+            print('Number of train batches:', self.num_train_batches)
+            print('Number of val batches:', self.num_val_batches)
+        except Exception as e:
+            print(e)
+        
 
     def forward(self, x):
         x = self.model(x)    # Apply activation in the step funcs

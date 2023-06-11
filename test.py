@@ -34,8 +34,9 @@ import math
 # Custom packages
 # from dataloader import FATDataset
 from utils import get_preprocessing
-from .pathoseg import UnetPlusPlus
-from .Pytorch_learner import MyLearner
+from pathoseg import UnetPlusPlus
+from Pytorch_learner import MyLearner
+from dataloader import GenericDataset
 
 def convert_to_rgb(mask, img_name, inference_path, dataset_name):
     """Function to convert typemaps to rgb masks"""
@@ -50,6 +51,11 @@ def convert_to_rgb(mask, img_name, inference_path, dataset_name):
         rgb_mask[blue] = [0,0,255]
         rgb_mask[green] = [0,255,0]
         rgb_mask[yellow] = [255,255,0]
+
+        if not os.path.exists(os.path.join(inference_path+'/'+dataset_name)):
+            # Create a new directory because it does not exist
+            os.makedirs(os.path.join(inference_path+'/'+dataset_name))
+
         cv2.imwrite(cv2.imwrite(os.path.join(inference_path+'/'+dataset_name, img_name), rgb_mask[:,:,[2,1,0]]))
 
     else:
@@ -64,6 +70,10 @@ def convert_to_rgb(mask, img_name, inference_path, dataset_name):
             print(e)
 
         print(rgb_mask.shape)
+        if not os.path.exists(os.path.join(inference_path+'/'+dataset_name)):
+            # Create a new directory because it does not exist
+            os.makedirs(os.path.join(inference_path+'/'+dataset_name))
+
         print(cv2.imwrite(os.path.join(inference_path+'/'+dataset_name, img_name), rgb_mask[:,:,[2,1,0]]))
 
 
@@ -72,13 +82,15 @@ def eval_acc(debug_name=None, args=None):
     ENCODER_WEIGHTS = args.encoder_weights
     preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    model = MyLearner(num_classes=args.num_classes, in_channels= args.in_channels).load_from_checkpoint(args.ckpt)
+    test_dataset = GenericDataset(img_path = args.data_path, mode = "Testing")#,preprocessing=get_preprocessing(preprocessing_fn))
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=2, pin_memory=True)
+    model = MyLearner(encoder_name=ENCODER, encoder_weights=ENCODER_WEIGHTS, num_classes=args.num_classes, in_channels= args.in_channels).load_from_checkpoint(args.ckpt)
     model = model.eval().to('cuda')
     test_imgs = os.listdir(args.data_path)
 
-    for img in test_imgs:
+    for img_name in test_imgs:
         with torch.no_grad():
-                img = cv2.imread(os.path.join(args.data_path, img), cv2.IMREAD_UNCHANGED)
+                img = cv2.imread(os.path.join(args.data_path, img_name), cv2.IMREAD_UNCHANGED)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
                 img = torchvision.transforms.functional.to_tensor(img)
@@ -87,7 +99,7 @@ def eval_acc(debug_name=None, args=None):
                 logits = model(img.to(device))
                 preds = torch.argmax(logits, dim=1).cpu()
                 print(preds.shape)
-                convert_to_rgb(preds, img, args.inference_path, args.dataset_type)
+                convert_to_rgb(preds, img_name, args.inference_path, args.dataset_type)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PathoSeg')

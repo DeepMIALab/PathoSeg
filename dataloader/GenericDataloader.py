@@ -63,6 +63,7 @@ class GenericDataset(Dataset):
         self.mode = mode.strip()
         self.transform = transform
         self.preprocessing = preprocessing
+        self.mode = mode
 
         if self.mode=="Training":
             for image_path in glob2.glob(self.img_path+"/*.png"):  #data/fat_detection/img_dir/train/*.png
@@ -76,11 +77,11 @@ class GenericDataset(Dataset):
                 mask_path = image_path.replace("img_dir","ann_dir")
                 self.mask_list.append(mask_path)
 
-        elif self.mode=="Test":
+        elif self.mode=="Testing":
             for image_path in glob2.glob(os.path.join(self.img_path, "*.png")):
                 self.img_list.append(image_path)
-                mask_path = image_path.replace("img_dir","ann_dir")
-                self.mask_list.append(mask_path)
+                # mask_path = image_path.replace("img_dir","ann_dir")
+                # self.mask_list.append(mask_path)
 
         print("Data Distribution For "+mode+" Phase")
         print("Images", len(self.img_list))
@@ -94,10 +95,13 @@ class GenericDataset(Dataset):
         """Get the images"""
         name = self.img_list[index].split("/")[-1]      # Return the name of the image and mask i.e 10.png
         img_path = self.img_list[index]
-        mask_path = self.mask_list[index]
+        if self.mode == 'Testing':
+            img = cv2.imread(img_path)
+            return img
         
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        mask_path = self.mask_list[index]
         mask = cv2.imread(mask_path,cv2.IMREAD_UNCHANGED)
 
         # img = Image.open(img_path).convert('RGB')
@@ -112,4 +116,5 @@ class GenericDataset(Dataset):
             #mask = self.transform(mask)
             
         img = torchvision.transforms.functional.to_tensor(img)
+        
         return img, mask
