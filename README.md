@@ -75,9 +75,15 @@ Data_Path                # DIR_TO_TRAIN_DATASET
 
 ```
 
-- Train the segmentation model:
+- Train the MSL/BCT segmentation model:
 ```bash
-python train.py --data_path_ ./dataset 
+python train.py --data_path_ ./dataset --encoder tu-hrnet_w30 --encoder_weights imagenet --train_batchsize 64 --validation_batchsize 32 --learning_rate 1e-4 --num_classes 2 --max_epochs 700 --gpus 3
+```
+```
+
+- Train the PCG segmentation model:
+```bash
+python train.py --data_path_ ./dataset --encoder tu-hrnet_w30 --encoder_weights imagenet --train_batchsize 64 --validation_batchsize 32 --learning_rate 1e-4 --num_classes 5 --max_epochs 700 --gpus 3
 ```
 ```
 
