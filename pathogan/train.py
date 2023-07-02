@@ -1,202 +1,93 @@
-import torch
-from torch import nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.utils.data.dataloader import DataLoader
-from torchvision import transforms
-from torchvision import utils as vutils
-
+# Copyright (C) 2020 NVIDIA Corporation.  All rights reserved.
+#
+# This work is made available under the Nvidia Source Code License-NC.
+# To view a copy of this license, check out LICENSE.md
 import argparse
-import random
-from tqdm import tqdm
 
-from models import weights_init, Discriminator, Generator
-from operation import copy_G_params, load_params, get_dir
-from operation import ImageFolder, InfiniteSamplerWrapper
-from diffaug import DiffAugment
-policy = 'color,translation'
-import lpips
-percept = lpips.PerceptualLoss(model='net-lin', net='vgg', use_gpu=True)
-
-
-#torch.backends.cudnn.benchmark = True
+from imaginaire.config import Config
+from imaginaire.utils.cudnn import init_cudnn
+from imaginaire.utils.dataset import get_train_and_val_dataloader
+from imaginaire.utils.distributed import init_dist
+from imaginaire.utils.distributed import master_only_print as print
+from imaginaire.utils.gpu_affinity import set_affinity
+from imaginaire.utils.logging import init_logging, make_logging_dir
+from imaginaire.utils.trainer import (get_model_optimizer_and_scheduler,
+                                      get_trainer, set_random_seed)
 
 
-def crop_image_by_part(image, part):
-    hw = image.shape[2]//2
-    if part==0:
-        return image[:,:,:hw,:hw]
-    if part==1:
-        return image[:,:,:hw,hw:]
-    if part==2:
-        return image[:,:,hw:,:hw]
-    if part==3:
-        return image[:,:,hw:,hw:]
+def parse_args():
+    parser = argparse.ArgumentParser(description='Training')
+    parser.add_argument('--config',
+                        help='Path to the training config file.', required=True)
+    parser.add_argument('--logdir', help='Dir for saving logs and models.')
+    parser.add_argument('--checkpoint', default='', help='Checkpoint path.')
+    parser.add_argument('--seed', type=int, default=0, help='Random seed.')
+    parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--single_gpu', action='store_true')
+    parser.add_argument('--num_workers', type=int)
+    args = parser.parse_args()
+    return args
 
-def train_d(net, data, label="real"):
-    """Train function of discriminator"""
-    if label=="real":
-        part = random.randint(0, 3)
-        pred, [rec_all, rec_small, rec_part] = net(data, label, part=part)
-        err = F.relu(  torch.rand_like(pred) * 0.2 + 0.8 -  pred).mean() + \
-            percept( rec_all, F.interpolate(data, rec_all.shape[2]) ).sum() +\
-            percept( rec_small, F.interpolate(data, rec_small.shape[2]) ).sum() +\
-            percept( rec_part, F.interpolate(crop_image_by_part(data, part), rec_part.shape[2]) ).sum()
-        err.backward()
-        return pred.mean().item(), rec_all, rec_small, rec_part
-    else:
-        pred = net(data, label)
-        err = F.relu( torch.rand_like(pred) * 0.2 + 0.8 + pred).mean()
-        err.backward()
-        return pred.mean().item()
-        
 
-def train(args):
+def main():
+    args = parse_args()
+    set_affinity(args.local_rank)
+    set_random_seed(args.seed, by_rank=True)
+    cfg = Config(args.config)
 
-    data_root = args.path
-    total_iterations = args.iter
-    checkpoint = args.ckpt
-    batch_size = args.batch_size
-    im_size = args.im_size
-    ndf = 64
-    ngf = 64
-    nz = 256
-    nlr = 0.0002
-    nbeta1 = 0.5
-    use_cuda = True
-    multi_gpu = True
-    dataloader_workers = 8
-    current_iteration = args.start_iter
-    save_interval = 100
-    saved_model_folder, saved_image_folder = get_dir(args)
-    
-    device = torch.device("cpu")
-    if use_cuda:
-        device = torch.device("cuda:0")
+    # If args.single_gpu is set to True,
+    # we will disable distributed data parallel
+    if not args.single_gpu:
+        cfg.local_rank = args.local_rank
+        init_dist(cfg.local_rank)
 
-    transform_list = [
-            transforms.Resize((int(im_size),int(im_size))),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-        ]
-    trans = transforms.Compose(transform_list)
-    
-    if 'lmdb' in data_root:
-        from operation import MultiResolutionDataset
-        dataset = MultiResolutionDataset(data_root, trans, 1024)
-    else:
-        dataset = ImageFolder(root=data_root, transform=trans)
+    # Override the number of data loading workers if necessary
+    if args.num_workers is not None:
+        cfg.data.num_workers = args.num_workers
 
-   
-    dataloader = iter(DataLoader(dataset, batch_size=batch_size, shuffle=False,
-                      sampler=InfiniteSamplerWrapper(dataset), num_workers=dataloader_workers, pin_memory=True))
-    '''
-    loader = MultiEpochsDataLoader(dataset, batch_size=batch_size, 
-                               shuffle=True, num_workers=dataloader_workers, 
-                               pin_memory=True)
-    dataloader = CudaDataLoader(loader, 'cuda')
-    '''
-    
-    
-    #from model_s import Generator, Discriminator
-    netG = Generator(ngf=ngf, nz=nz, im_size=im_size)
-    netG.apply(weights_init)
+    # Create log directory for storing training results.
+    cfg.date_uid, cfg.logdir = init_logging(args.config, args.logdir)
+    make_logging_dir(cfg.logdir)
 
-    netD = Discriminator(ndf=ndf, im_size=im_size)
-    netD.apply(weights_init)
+    # Initialize cudnn.
+    init_cudnn(cfg.cudnn.deterministic, cfg.cudnn.benchmark)
 
-    netG.to(device)
-    netD.to(device)
+    # Initialize data loaders and models.
+    train_data_loader, val_data_loader = get_train_and_val_dataloader(cfg)
+    net_G, net_D, opt_G, opt_D, sch_G, sch_D = \
+        get_model_optimizer_and_scheduler(cfg, seed=args.seed)
+    trainer = get_trainer(cfg, net_G, net_D,
+                          opt_G, opt_D,
+                          sch_G, sch_D,
+                          train_data_loader, val_data_loader)
+    current_epoch, current_iteration = trainer.load_checkpoint(
+        cfg, args.checkpoint)
 
-    avg_param_G = copy_G_params(netG)
+    # Start training.
+    for epoch in range(current_epoch, cfg.max_epoch):
+        print('Epoch {} ...'.format(epoch))
+        if not args.single_gpu:
+            train_data_loader.sampler.set_epoch(current_epoch)
+        trainer.start_of_epoch(current_epoch)
+        for it, data in enumerate(train_data_loader):
+            data = trainer.start_of_iteration(data, current_iteration)
 
-    fixed_noise = torch.FloatTensor(8, nz).normal_(0, 1).to(device)
-    
-    optimizerG = optim.Adam(netG.parameters(), lr=nlr, betas=(nbeta1, 0.999))
-    optimizerD = optim.Adam(netD.parameters(), lr=nlr, betas=(nbeta1, 0.999))
+            for _ in range(cfg.trainer.dis_step):
+                trainer.dis_update(data)
+            for _ in range(cfg.trainer.gen_step):
+                trainer.gen_update(data)
 
-    if checkpoint != 'None':
-        ckpt = torch.load(checkpoint)
-        netG.load_state_dict({k.replace('module.', ''): v for k, v in ckpt['g'].items()})
-        netD.load_state_dict({k.replace('module.', ''): v for k, v in ckpt['d'].items()})
-        avg_param_G = ckpt['g_ema']
-        optimizerG.load_state_dict(ckpt['opt_g'])
-        optimizerD.load_state_dict(ckpt['opt_d'])
-        current_iteration = int(checkpoint.split('_')[-1].split('.')[0])
-        del ckpt
-        
-    if multi_gpu:
-        netG = nn.DataParallel(netG.to(device))
-        netD = nn.DataParallel(netD.to(device))
-    
-    for iteration in tqdm(range(current_iteration, total_iterations+1)):
-        real_image = next(dataloader)
-        real_image = real_image.to(device)
-        current_batch_size = real_image.size(0)
-        noise = torch.Tensor(current_batch_size, nz).normal_(0, 1).to(device)
+            current_iteration += 1
+            trainer.end_of_iteration(data, current_epoch, current_iteration)
+            if current_iteration >= cfg.max_iter:
+                print('Done with training!!!')
+                return
 
-        fake_images = netG(noise)
+        current_epoch += 1
+        trainer.end_of_epoch(data, current_epoch, current_iteration)
+    print('Done with training!!!')
+    return
 
-        real_image = DiffAugment(real_image, policy=policy)
-        fake_images = [DiffAugment(fake, policy=policy) for fake in fake_images]
-        
-        ## 2. train Discriminator
-        netD.zero_grad()
-
-        err_dr, rec_img_all, rec_img_small, rec_img_part = train_d(netD, real_image, label="real")
-        train_d(netD, [fi.detach() for fi in fake_images], label="fake")
-        optimizerD.step()
-        
-        ## 3. train Generator
-        netG.zero_grad()
-        pred_g = netD(fake_images, "fake")
-        err_g = -pred_g.mean()
-
-        err_g.backward()
-        optimizerG.step()
-
-        for p, avg_p in zip(netG.parameters(), avg_param_G):
-            avg_p.mul_(0.999).add_(0.001 * p.data)
-
-        if iteration % 100 == 0:
-            print("GAN: loss d: %.5f    loss g: %.5f"%(err_dr, -err_g.item()))
-          
-        if iteration % (save_interval*10) == 0:
-            backup_para = copy_G_params(netG)
-            load_params(netG, avg_param_G)
-            with torch.no_grad():
-                vutils.save_image(netG(fixed_noise)[0].add(1).mul(0.5), saved_image_folder+'/%d.jpg'%iteration, nrow=4)
-                vutils.save_image( torch.cat([
-                        F.interpolate(real_image, 128), 
-                        rec_img_all, rec_img_small,
-                        rec_img_part]).add(1).mul(0.5), saved_image_folder+'/rec_%d.jpg'%iteration )
-            load_params(netG, backup_para)
-
-        if iteration % (save_interval*50) == 0 or iteration == total_iterations:
-            backup_para = copy_G_params(netG)
-            load_params(netG, avg_param_G)
-            torch.save({'g':netG.state_dict(),'d':netD.state_dict()}, saved_model_folder+'/%d.pth'%iteration)
-            load_params(netG, backup_para)
-            torch.save({'g':netG.state_dict(),
-                        'd':netD.state_dict(),
-                        'g_ema': avg_param_G,
-                        'opt_g': optimizerG.state_dict(),
-                        'opt_d': optimizerD.state_dict()}, saved_model_folder+'/all_%d.pth'%iteration)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='region gan')
-
-    parser.add_argument('--path', type=str, default='../lmdbs/art_landscape_1k', help='path of resource dataset, should be a folder that has one or many sub image folders inside')
-    parser.add_argument('--cuda', type=int, default=0, help='index of gpu to use')
-    parser.add_argument('--name', type=str, default='test1', help='experiment name')
-    parser.add_argument('--iter', type=int, default=50000, help='number of iterations')
-    parser.add_argument('--start_iter', type=int, default=0, help='the iteration to start training')
-    parser.add_argument('--batch_size', type=int, default=8, help='mini batch number of images')
-    parser.add_argument('--im_size', type=int, default=1024, help='image resolution')
-    parser.add_argument('--ckpt', type=str, default='None', help='checkpoint weight path if have one')
-
-    args = parser.parse_args()
-    print(args)
-
-    train(args)
+    main()
