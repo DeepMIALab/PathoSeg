@@ -41,7 +41,7 @@ cd PathSeg-PathopixGAN
 
 ### Training and Test
 
-- The training and test cohorts have been already provided with the dataset. You may download the dataset and operate the dataloader function provided in [PathSeg-PathopixGAN/dataloader](https://github.com/DeepMIALab/PathSeg-PathopixGAN/dataloader)  to replicate the results published in the paper. 
+- The training and test cohorts have been already provided with the dataset. You may download the dataset and operate the dataloader function provided in [PathSeg/dataloader](https://github.com/DeepMIALab/PathSeg/dataloader)  to replicate the results published in the paper. 
 
 The data used for training are expected to be organized as follows:
 ```bash
